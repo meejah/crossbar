@@ -464,10 +464,21 @@ def run_command_start(options):
 
     # create and start Crossbar.io node
     #
-    from crossbar.controller.node import Node
-    node = Node(reactor, options)
-    node.start()
+    def start_node():
+        from crossbar.controller.node import Node
+        node = Node(reactor, options)
+        d = node.start()
 
+        def error(fail):
+            print("Failed to start node:")
+            print(fail.getErrorMessage())
+            if False:
+                fail.printTraceback()
+            if reactor.running:
+                reactor.stop()
+        d.addErrback(error)
+
+    reactor.callWhenRunning(start_node)
     try:
         log.info("Entering reactor event loop...")
         reactor.run()
