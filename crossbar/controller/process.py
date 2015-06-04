@@ -40,8 +40,11 @@ import shutil
 
 from datetime import datetime
 
+import psutil
+
 from twisted.internet.defer import Deferred, DeferredList, returnValue, inlineCallbacks
 from twisted.internet.error import ProcessExitedAlready
+from twisted.internet.task import LoopingCall
 
 from twisted.internet.threads import deferToThread
 
@@ -148,6 +151,11 @@ class NodeControllerSession(NativeProcessSession):
 
         self._management_transport = None
 
+        # if not None, we write memory statistics every 10 seconds
+        self._process = psutil.Process()
+        self._memory_file = open('/tmp/cb-memory', 'w')
+        self._memory_file.write('# timestamp VMS RSS\n')
+
     def onConnect(self):
         # self._uri_prefix = 'crossbar.node.{}'.format(self.config.extra.node)
         self._uri_prefix = 'crossbar.node.{}'.format(self._node_id)
@@ -209,6 +217,9 @@ class NodeControllerSession(NativeProcessSession):
 
         self.log.debug("{me} registered {registers} procedures",
                        me=self.__class__.__name__, registers=len(regs))
+
+        if self._memory_file:
+            LoopingCall(self.write_heap_info).start(10)
 
         # FIXME: publish node ready event
 
@@ -956,6 +967,19 @@ class NodeControllerSession(NativeProcessSession):
         else:
             del self._workers[id]
 
+    def write_heap_info(self, fname=None):
+        """
+        This writes out currently-available heap-profiling information to
+        the provided file, or a date-stamped one in /tmp if no `fname`
+        paramater is provided.
+        """
+
+        mem = self._process.memory_info()  # see also memory_info_ex()
+        cpu = self._process.cpu_percent(interval=None)  # since last call
+        timestamp = reactor.seconds()
+        print("STATS:", mem, cpu)
+        self._memory_file.write("{0} {1} {2}\n".format(timestamp, mem.vms, mem.rss))
+        self._memory_file.flush()
 
 def create_process_env(options):
     """

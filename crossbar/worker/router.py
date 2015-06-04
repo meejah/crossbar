@@ -37,7 +37,10 @@ import importlib
 import pkg_resources
 from datetime import datetime
 
+import psutil
+
 from twisted.internet import reactor
+from twisted.internet.task import LoopingCall
 from twisted.python import log
 from twisted.python.compat import unicode
 from twisted.internet.defer import DeferredList
@@ -287,8 +290,26 @@ class RouterWorkerSession(NativeWorkerSession):
         if self.debug:
             log.msg("RouterWorker registered {} procedures".format(len(regs)))
 
+        self._memory_file = open('/tmp/router-memory', 'w')
+        self._memory_file.write('# timestamp VMS RSS\n')
+        self._process = psutil.Process()
+        if self._memory_file:
+            LoopingCall(self.write_heap_info).start(10)
+
         # NativeWorkerSession.publish_ready()
         yield self.publish_ready()
+
+    def write_heap_info(self, fname=None):
+        mem = self._process.memory_info()  # see also memory_info_ex()
+        cpu = self._process.cpu_percent(interval=None)  # since last call
+        sessions = 0
+        for realm in self.realms.values():
+            sessions += len(realm.session._router._session_id_to_session.values())
+        timestamp = reactor.seconds()
+        print("routerSTATS:", timestamp, mem, cpu)
+        self._memory_file.write("{0} {1} {2} {3}\n".format(timestamp, mem.vms, mem.rss, sessions))
+        self._memory_file.flush()
+
 
     def get_router_realms(self, details=None):
         """
