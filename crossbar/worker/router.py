@@ -291,7 +291,7 @@ class RouterWorkerSession(NativeWorkerSession):
             log.msg("RouterWorker registered {} procedures".format(len(regs)))
 
         self._memory_file = open('/tmp/router-memory', 'w')
-        self._memory_file.write('# timestamp VMS RSS\n')
+        self._memory_file.write('# timestamp VMS RSS sessions total-mem\n')
         self._process = psutil.Process()
         if self._memory_file:
             LoopingCall(self.write_heap_info).start(10)
@@ -306,8 +306,9 @@ class RouterWorkerSession(NativeWorkerSession):
         for realm in self.realms.values():
             sessions += len(realm.session._router._session_id_to_session.values())
         timestamp = reactor.seconds()
+        totalmem = psutil.virtual_memory().used
         print("routerSTATS:", timestamp, mem, cpu, sessions)
-        self._memory_file.write("{0} {1} {2} {3}\n".format(timestamp, mem.vms, mem.rss, sessions))
+        self._memory_file.write("{0} {1} {2} {3} {4}\n".format(timestamp, mem.vms, mem.rss, sessions, totalmem))
         self._memory_file.flush()
 
 
