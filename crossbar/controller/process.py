@@ -154,7 +154,7 @@ class NodeControllerSession(NativeProcessSession):
         # if not None, we write memory statistics every 10 seconds
         self._process = psutil.Process()
         self._memory_file = open('/tmp/cb-memory', 'w')
-        self._memory_file.write('# timestamp VMS RSS\n')
+        self._memory_file.write('# timestamp VMS RSS total-machine-memory\n')
 
     def onConnect(self):
         # self._uri_prefix = 'crossbar.node.{}'.format(self.config.extra.node)
@@ -977,8 +977,9 @@ class NodeControllerSession(NativeProcessSession):
         mem = self._process.memory_info()  # see also memory_info_ex()
         cpu = self._process.cpu_percent(interval=None)  # since last call
         timestamp = reactor.seconds()
+        totalmem = psutil.virtual_memory().used
         print("STATS:", mem, cpu)
-        self._memory_file.write("{0} {1} {2}\n".format(timestamp, mem.vms, mem.rss))
+        self._memory_file.write("{0} {1} {2} {3}\n".format(timestamp, mem.vms, mem.rss, totalmem))
         self._memory_file.flush()
 
 def create_process_env(options):
