@@ -978,7 +978,7 @@ class NodeControllerSession(NativeProcessSession):
         cpu = self._process.cpu_percent(interval=None)  # since last call
         timestamp = reactor.seconds()
         totalmem = psutil.virtual_memory().used
-        print("STATS:", mem, cpu)
+        print("STATS:", mem, cpu, totalmem)
         self._memory_file.write("{0} {1} {2} {3}\n".format(timestamp, mem.vms, mem.rss, totalmem))
         self._memory_file.flush()
 

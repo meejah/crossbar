@@ -306,7 +306,7 @@ class RouterWorkerSession(NativeWorkerSession):
         for realm in self.realms.values():
             sessions += len(realm.session._router._session_id_to_session.values())
         timestamp = reactor.seconds()
-        print("routerSTATS:", timestamp, mem, cpu)
+        print("routerSTATS:", timestamp, mem, cpu, sessions)
         self._memory_file.write("{0} {1} {2} {3}\n".format(timestamp, mem.vms, mem.rss, sessions))
         self._memory_file.flush()
 
