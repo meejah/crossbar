@@ -466,6 +466,7 @@ class NodeControllerSession(NativeProcessSession):
         args.extend(["--realm", self._realm])
         args.extend(["--type", wtype])
         args.extend(["--loglevel", _loglevel])
+        args.extend(["--profile", self._node.options.profile])
 
         # allow override worker process title from options
         #

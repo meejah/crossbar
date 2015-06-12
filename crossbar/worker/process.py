@@ -106,6 +106,15 @@ def run():
                         default=None,
                         help='Worker process title to set (optional).')
 
+    from crossbar._profiling import profilers
+    parser.add_argument(
+        '--profile',
+        type=str,
+        default=None,
+        choices=profilers.keys(),
+        help="Setup and run a profiler.",
+    )
+
     options = parser.parse_args()
 
     # make sure logging to something else than stdio is setup _first_

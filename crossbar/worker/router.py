@@ -290,6 +290,15 @@ class RouterWorkerSession(NativeWorkerSession):
         if self.debug:
             log.msg("RouterWorker registered {} procedures".format(len(regs)))
 
+        # profiling
+        from crossbar._profiling import profilers
+        profile = self.config.extra.get('profile', False)
+        if profile:
+            if profile not in profilers:
+                raise RuntimeError("Unknown profiler '{}'.".format(profile))
+            profilers[profile]('/tmp/cb-profile-router.data')
+
+
         # NativeWorkerSession.publish_ready()
         yield self.publish_ready()
 

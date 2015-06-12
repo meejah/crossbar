@@ -478,6 +478,11 @@ def run_command_start(options):
 
     log.info("Starting from node directory {}".format(options.cbdir))
 
+    # maybe enable profiling
+    from crossbar._profiling import profilers
+    if options.profile:
+        profilers[options.profile]('/tmp/cb-profile-controller.data')
+
     # create and start Crossbar.io node
     #
     def start_crossbar():
@@ -640,6 +645,15 @@ def run(prog=None, args=None):
                               default='colour',
                               choices=['syslogd', 'nocolour', 'colour'],
                               help="The format of the logs -- suitable for syslogd, not coloured, or coloured.")
+
+    from crossbar._profiling import profilers
+    parser_start.add_argument(
+        '--profile',
+        type=str,
+        default=None,
+        choices=profilers.keys(),
+        help="Setup and run a profiler for the entire crossbar run.",
+    )
 
     # "stop" command
     #
