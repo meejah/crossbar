@@ -77,10 +77,13 @@ class _RouterApplicationSession(object):
 
         :param session: Application session to wrap.
         :type session: An instance that implements :class:`autobahn.wamp.interfaces.ISession`
+
         :param routerFactory: The router factory to associate this session with.
         :type routerFactory: An instance that implements :class:`autobahn.wamp.interfaces.IRouterFactory`
+
         :param authid: The fixed/trusted authentication ID under which the session will run.
         :type authid: str
+
         :param authrole: The fixed/trusted authentication role under which the session will run.
         :type authrole: str
         """
@@ -102,10 +105,11 @@ class _RouterApplicationSession(object):
         self._trusted_authid = authid
         self._trusted_authrole = authrole
 
+        self.is_closed = txaio.create_future()
+
         # set fake transport on session ("pass-through transport")
         #
         self._session._transport = self
-
         self._session.onConnect()
 
     def _swallow_error(self, fail, msg):
@@ -120,9 +124,6 @@ class _RouterApplicationSession(object):
         """
         Implements :func:`autobahn.wamp.interfaces.ITransport.isOpen`
         """
-
-    def is_closed(self):
-        return False
 
     def close(self):
         """
@@ -213,6 +214,13 @@ class _RouterApplicationSession(object):
             # fire onClose callback and handle any exception escaping from there
             d = txaio.as_future(self._session.onClose, None)
             txaio.add_callbacks(d, None, lambda fail: self._swallow_error(fail, "While firing onClose"))
+
+            # deal with the is_closed future
+            if msg.reason.startswith('wamp.error.'):
+                txaio.reject(self.is_closed, Exception('{}: {}'.format(msg.reason, msg.message)))
+            else:
+                txaio.resolve(self.is_closed, None)
+            self.is_closed = txaio.create_future()
 
         else:
             # should not arrive here
