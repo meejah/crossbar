@@ -492,6 +492,26 @@ class RouterWorkerSession(NativeWorkerSession):
             self.log.error("Component instantiation failed:\n\n{err}", err=msg)
             raise
 
+        # XXX really, really wants the "listener" API discussed elsewhere
+        orig_join = session.onJoin
+        def join_wrapper(*args, **kw):
+            r = orig_join(*args, **kw)
+            topic = '{}.router.on_component_start'.format(self._uri_prefix)
+            print("PUB", topic)
+            self.publish(topic, dict(id=id))
+            return r
+        session.onJoin = join_wrapper
+
+        # "listen" for onLeave
+        orig_leave = session.onLeave
+        def leave_wrapper(*args, **kw):
+            r = orig_leave(*args, **kw)
+            topic = '{}.router.on_component_stop'.format(self._uri_prefix)
+            print("PUB", topic)
+            self.publish(topic, dict(id=id))
+            return r
+        session.onLeave = leave_wrapper
+
         self.components[id] = RouterComponent(id, config, session)
         self._router_session_factory.add(session, authrole=config.get('role', u'anonymous'))
         self.log.debug("Added component {id}", id=id)
