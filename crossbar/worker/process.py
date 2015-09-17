@@ -30,6 +30,7 @@
 
 from __future__ import absolute_import, print_function
 
+from os import environ
 from twisted.internet.error import ReactorNotRunning
 
 __all__ = ('run',)
@@ -179,7 +180,15 @@ def run():
                 # losing the connection to the node controller is fatal:
                 # stop the reactor and exit with error
                 log.info("No more controller connection; shutting down.")
-                reactor.addSystemEventTrigger('after', 'shutdown', os._exit, 1)
+
+                # if we're doing coverage, we *have* to exit cleanly
+                # to have the atexit handlers run...I can't see any
+                # way to cause the "automagic" coverage-object created
+                # by coverage.process_startup() to have .save() run on
+                # it, *except* via the atexit handler :(
+                if not environ.get('COVERAGE_PROCESS_START', False):
+                    reactor.addSystemEventTrigger('after', 'shutdown', os._exit, 1)
+
                 try:
                     reactor.stop()
                 except ReactorNotRunning:
