@@ -68,14 +68,14 @@ class RouterApplicationSession(object):
 
     log = make_logger()
 
-    def __init__(self, session, routerFactory, authid=None, authrole=None):
+    def __init__(self, session, router_factory, authid=None, authrole=None):
         """
         Wrap an application session and add it to the given broker and dealer.
 
         :param session: Application session to wrap.
         :type session: An instance that implements :class:`autobahn.wamp.interfaces.ISession`
-        :param routerFactory: The router factory to associate this session with.
-        :type routerFactory: An instance that implements :class:`autobahn.wamp.interfaces.IRouterFactory`
+        :param router_factory: The router factory to associate this session with.
+        :type router_factory: An instance that implements :class:`autobahn.wamp.interfaces.IRouterFactory`
         :param authid: The fixed/trusted authentication ID under which the session will run.
         :type authid: str
         :param authrole: The fixed/trusted authentication role under which the session will run.
@@ -87,7 +87,7 @@ class RouterApplicationSession(object):
 
         # remember router we are wrapping the app session for
         #
-        self._routerFactory = routerFactory
+        self._router_factory = router_factory
         self._router = None
 
         # remember wrapped app session
@@ -149,7 +149,7 @@ class RouterApplicationSession(object):
         Implements :func:`autobahn.wamp.interfaces.ITransport.send`
         """
         if isinstance(msg, message.Hello):
-            self._router = self._routerFactory.get(msg.realm)
+            self._router = self._router_factory.get(msg.realm)
 
             # fake session ID assignment (normally done in WAMP opening handshake)
             self._session._session_id = util.id()
@@ -750,13 +750,13 @@ class RouterSessionFactory(object):
     WAMP router session class to be used in this factory.
     """
 
-    def __init__(self, routerFactory):
+    def __init__(self, router_factory):
         """
 
-        :param routerFactory: The router factory this session factory is working for.
-        :type routerFactory: Instance of :class:`autobahn.wamp.router.RouterFactory`.
+        :param router_factory: The router factory this session factory is working for.
+        :type router_factory: Instance of :class:`autobahn.wamp.router.RouterFactory`.
         """
-        self._routerFactory = routerFactory
+        self._router_factory = router_factory
         self._app_sessions = {}
 
     def add(self, session, authid=None, authrole=None):
@@ -766,7 +766,7 @@ class RouterSessionFactory(object):
         :param: session: A WAMP application session.
         :type session: A instance of a class that derives of :class:`autobahn.wamp.protocol.WampAppSession`
         """
-        self._app_sessions[session] = RouterApplicationSession(session, self._routerFactory, authid, authrole)
+        self._app_sessions[session] = RouterApplicationSession(session, self._router_factory, authid, authrole)
 
     def remove(self, session):
         """
@@ -783,6 +783,6 @@ class RouterSessionFactory(object):
         :returns: -- An instance of the WAMP router session class as
                      given by `self.session`.
         """
-        session = self.session(self._routerFactory)
+        session = self.session(self._router_factory)
         session.factory = self
         return session
