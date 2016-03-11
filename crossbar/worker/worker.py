@@ -68,7 +68,7 @@ class NativeWorkerSession(NativeProcessSession):
     log = make_logger()
 
     def onUserError(self, err, errmsg):
-        self.log.error("NativeWorkerSession.onUserError", failure=err)
+        self.log.failure("NativeWorkerSession.onUserError", failure=err)
 
     def onConnect(self):
         """

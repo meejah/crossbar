@@ -2165,7 +2165,7 @@ def check_router(router):
         check_manhole(router['manhole'])
 
     if 'options' in router:
-        check_native_worker_options(router['options'])
+        check_router_options(router['options'])
 
     # realms
     #
@@ -2232,7 +2232,12 @@ def check_container(container):
 
 
 def check_router_options(options):
-    check_native_worker_options(options)
+    check_native_worker_options(options, extra_options=['auto_realms'])
+    if 'auto_realms' in options:
+        if not isinstance(options['auto_realms'], bool):
+            raise InvalidConfigException(
+                "'auto_realms' must be a boolean"
+            )
 
 
 def check_container_options(options):
@@ -2327,7 +2332,7 @@ def check_process_env(env):
                 raise InvalidConfigException("invalid type for environment variable value '{}' in 'options.env.vars' - must be a string ({} encountered)".format(v, type(v)))
 
 
-def check_native_worker_options(options):
+def check_native_worker_options(options, extra_options=[]):
     """
     Check native worker options.
 
@@ -2341,8 +2346,12 @@ def check_native_worker_options(options):
     if not isinstance(options, Mapping):
         raise InvalidConfigException("'options' in worker configurations must be dictionaries ({} encountered)".format(type(options)))
 
+    allowed_options = [
+        'title', 'reactor', 'python', 'pythonpath', 'cpu_affinity', 'env',
+    ]
+    allowed_options.extend(extra_options)
     for k in options:
-        if k not in ['title', 'reactor', 'python', 'pythonpath', 'cpu_affinity', 'env']:
+        if k not in allowed_options:
             raise InvalidConfigException("encountered unknown attribute '{}' in 'options' in worker configuration".format(k))
 
     if 'title' in options:
