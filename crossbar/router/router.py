@@ -45,6 +45,8 @@ from crossbar.router.role import RouterRole, \
     RouterTrustedRole, RouterRoleStaticAuth, \
     RouterRoleDynamicAuth
 
+from twisted.internet import defer
+
 from crossbar._logging import make_logger
 
 __all__ = (
@@ -311,7 +313,7 @@ class RouterFactory(object):
     The router class this factory will create router instances from.
     """
 
-    def __init__(self, node_id, options=None):
+    def __init__(self, node_id, control_session, options=None):
         """
 
         :param options: Default router options.
@@ -321,7 +323,9 @@ class RouterFactory(object):
         self._node_id = node_id
         self._routers = {}
         self._options = options or RouterOptions(uri_check=RouterOptions.URI_CHECK_LOOSE)
-        self._auto_create_realms = False
+        self._auto_create_realms = True
+        self._control_session = control_session
+        self._auto_starting = {}  # realm_id -> Deferred
 
     def get(self, realm):
         """
@@ -332,9 +336,7 @@ class RouterFactory(object):
                 self._routers[realm] = self.router(self, realm, self._options)
                 self.log.debug("Router created for realm '{realm}'",
                                realm=realm)
-            return self._routers[realm]
-        else:
-            return self._routers[realm]
+        return self._routers[realm]
 
     def __getitem__(self, realm):
         return self._routers[realm]
@@ -358,8 +360,10 @@ class RouterFactory(object):
         :returns: The router instance for the started realm.
         :rtype: instance of :class:`crossbar.router.session.CrossbarRouter`
         """
-        self.log.debug("CrossbarRouterFactory.start_realm(realm = {realm})",
-                       realm=realm)
+        self.log.info(
+            "CrossbarRouterFactory.start_realm(realm='{realm}')",
+            realm=realm,
+        )
 
         # get name of realm (an URI in general)
         #
@@ -420,8 +424,75 @@ class RouterFactory(object):
         self.log.debug("CrossbarRouterFactory.drop_role(realm = {realm}, role = {role})",
                        realm=realm, role=role)
 
-    def auto_start_realm(self, realm):
-        raise Exception("realm auto-activation not yet implemented")
+    def auto_start_realm(self, realm_name):
+        self.log.info(
+            "auto_start_realm {realm}",
+            realm=realm_name,
+        )
+        if not self._auto_create_realms:
+            return defer.fail(Exception("Will not autostart '{}'".format(realm_name)))
+
+        if realm_name in self._routers:
+            return defer.succeed(None)
+
+        if realm_name in self._auto_starting:
+            return self._auto_starting[realm_name]
+
+        realm_config = dict(
+            name=realm_name,
+            roles=[{
+                "name": u"anonymous",
+                "permissions": [
+                    {
+                        "uri": u"",
+                        "match": u"prefix",
+                        "allow": {
+                            "call": True,
+                            "register": True,
+                            "publish": True,
+                            "subscribe": True
+                        },
+                        "disclose": {
+                            "caller": False,
+                            "publisher": False
+                        },
+                        "cache": True
+                    }
+                ]
+            }],
+        )
+        myid = 'worker1'
+        d = self._control_session.call(
+            u"crossbar.node.{node_id}.worker.{worker_id}.start_router_realm".format(
+                node_id=self._node_id,
+                worker_id=myid,
+            ),
+            realm_name,
+            realm_config,
+        )
+        self._auto_starting[realm_name] = d
+
+        def start_role(_):
+            role_id = 'role0'#realm_config['roles'][0]
+            d2 = self._control_session.call(
+                u"crossbar.node.{node_id}.worker.{worker_id}.start_router_realm_role".format(
+                    node_id=self._node_id,
+                    worker_id=myid,
+                ),
+                realm_name,
+                role_id,
+                realm_config['roles'][0],
+            )
+        d.addCallback(start_role)
+        def started(_):
+            self.log.info("Started realm + role")
+            del self._auto_starting[realm_name]
+        d.addCallback(started)
+        return d
+        # hmm, do we actually want to call start_router_realm instead?)
+        # -> yes, looks like it ('merely' constructing RouterRealm doesnt add roles to anything)
+        self.start_realm(realm)
+        return defer.succeed(True)
 
     def auto_add_role(self, realm, role):
         raise Exception("role auto-activation not yet implemented")

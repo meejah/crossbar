@@ -268,8 +268,10 @@ class RouterWorkerSession(NativeWorkerSession):
         """
         yield NativeWorkerSession.onJoin(self, details, publish_ready=False)
 
+        print("STARTING ROUTERFACTORY {}".format(details))
         # factory for producing (per-realm) routers
-        self._router_factory = RouterFactory(self._node_id)
+        # XXX are we passing the right session to this thing? I doubt it
+        self._router_factory = RouterFactory(self._node_id, self)
 
         # factory for producing router sessions
         self._router_session_factory = RouterSessionFactory(self._router_factory)

@@ -50,7 +50,6 @@ class PendingAuthAnonymous(PendingAuth):
     AUTHMETHOD = u'anonymous'
 
     def hello(self, realm, details):
-
         # remember the realm the client requested to join (if any)
         self._realm = realm
 

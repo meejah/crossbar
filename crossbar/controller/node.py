@@ -445,9 +445,13 @@ class Node(object):
         else:
             self.log.info("Using default node shutdown triggers {}".format(self._node_shutdown_triggers))
 
+        # the node controller singleton WAMP application session
+        #
+        self._controller = NodeControllerSession(self)
+
         # router and factory that creates router sessions
         #
-        self._router_factory = RouterFactory(self._node_id)
+        self._router_factory = RouterFactory(self._node_id, self._controller)
         self._router_session_factory = RouterSessionFactory(self._router_factory)
 
         rlm_config = {
@@ -469,10 +473,6 @@ class Node(object):
             self._router_session_factory.add(self._bridge_session, authrole=u'trusted')
         else:
             self._bridge_session = None
-
-        # the node controller singleton WAMP application session
-        #
-        self._controller = NodeControllerSession(self)
 
         # add the node controller singleton session to the router
         #

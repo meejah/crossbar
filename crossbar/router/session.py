@@ -554,7 +554,6 @@ class RouterSession(BaseSession):
         return None  # we've handled the error; don't propagate
 
     def onHello(self, realm, details):
-
         try:
             # default authentication method is "WAMP-Anonymous" if client doesn't specify otherwise
             authmethods = details.authmethods or [u'anonymous']
@@ -591,7 +590,63 @@ class RouterSession(BaseSession):
                         return types.Deny(ApplicationError.NO_SUCH_REALM, message=u'no realm requested')
 
                     if realm not in self._router_factory:
-                        return types.Deny(ApplicationError.NO_SUCH_REALM, message=u'no realm "{}" exists on this router'.format(realm))
+                        # if we enabled auto_realms, we want to start
+                        # the realm and *then* do auth
+                        # ...so we want to call .start_router_realm() ultmately.
+                        # aka crossbar.node.<node_id>.worker.<worker_id>.start_router_realm
+
+                        print("FACTORY {}".format(self._router_factory))
+                        print("FACTORY {}".format(self._router_factory._routers))
+                        print("FACTORY {}".format(self._router_factory._node_id))
+                        print("FAC {}".format(self._router_factory._control_session))
+                        print("XXX {}".format(dir(self._router)))
+                        myid = 'worker1'
+                        realm_id = realm
+                        realm_config = dict(
+                            name=realm_id,
+                            roles=[
+                                {
+                                    "name": "anonymous",
+                                    "permissions": [
+                                        {
+                                            "uri": u"",
+                                            "match": u"prefix",
+                                            "allow": {
+                                                "call": True,
+                                                "register": True,
+                                                "publish": True,
+                                                "subscribe": True
+                                            },
+                                            "disclose": {
+                                                "caller": False,
+                                                "publisher": False
+                                            },
+                                            "cache": True
+                                        }
+                                    ]
+                                }
+                            ]
+                        )
+                        d = self._router_factory.auto_start_realm(realm)
+
+                        def success(res):
+                            print("AUTOSTARTED {}".format(res))
+                            return types.Accept(
+                                realm=realm,
+                                authid=util.generate_serial_number(), # XXX ticket? _cbtid?
+                                authrole=u'anonymous',
+                                authmethod=u'anonymous',
+                                authprovider=u'static',
+                                authextra=None,
+                            )
+
+                        def failure(fail):
+                            return types.Deny(
+                                ApplicationError.NO_SUCH_REALM,
+                                message=u'no realm "{}" exists on this router'.format(realm),
+                            )
+                        d.addCallbacks(success, failure)
+                        return d
 
                     # we ignore any details.authid the client might have announced, and use
                     # a cookie value or a random value
@@ -650,7 +705,8 @@ class RouterSession(BaseSession):
                     return types.Deny(ApplicationError.NO_AUTH_METHOD, message=u'cannot authenticate using any of the offered authmethods {}'.format(authmethods))
 
         except Exception as e:
-            self.log.critical("Internal error")
+            self.log.failure("Internal error")
+            # XXX think: str()-ing the exception might reveal more than we want...
             return types.Deny(message=u'internal error: {}'.format(e))
 
     def onAuthenticate(self, signature, extra):
