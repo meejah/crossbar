@@ -483,6 +483,7 @@ class RouterFactory(object):
                 role_id,
                 realm_config['roles'][0],
             )
+            return d2
         d.addCallback(start_role)
         def started(_):
             self.log.info("Started realm + role")
