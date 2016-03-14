@@ -142,14 +142,16 @@ class PendingAuthCryptosign(PendingAuth):
                 if pubkey and (pubkey not in principal[u'authorized_keys']):
                     return types.Deny(message=u'extra.pubkey provided does not match any one of authorized_keys for the principal')
 
-                error = self._assign_principal(principal)
-                if error:
-                    return error
+                d = maybeDeferred(self._assign_principal, principal)
+                def assigned(res):
+                    if res:
+                        return res
 
-                self._verify_key = VerifyKey(pubkey, encoder=nacl.encoding.HexEncoder)
-
-                extra = self._compute_challenge(channel_binding)
-                return types.Challenge(self._authmethod, extra)
+                    self._verify_key = VerifyKey(pubkey, encoder=nacl.encoding.HexEncoder)
+                    extra = self._compute_challenge(channel_binding)
+                    return types.Challenge(self._authmethod, extra)
+                d.addCallback(assigned)
+                return d
             else:
                 return types.Deny(message=u'no principal with authid "{}" exists'.format(details.authid))
 
@@ -164,14 +166,16 @@ class PendingAuthCryptosign(PendingAuth):
             d = self._authenticator_session.call(self._authenticator, realm, details.authid, self._session_details)
 
             def on_authenticate_ok(principal):
-                error = self._assign_principal(principal)
-                if error:
-                    return error
+                d = maybeDeferred(self._assign_principal, principal)
+                def assigned(res):
+                    if res:
+                        return res
 
-                self._verify_key = VerifyKey(principal[u'pubkey'], encoder=nacl.encoding.HexEncoder)
-
-                extra = self._compute_challenge()
-                return types.Challenge(self._authmethod, extra)
+                    self._verify_key = VerifyKey(principal[u'pubkey'], encoder=nacl.encoding.HexEncoder)
+                    extra = self._compute_challenge()
+                    return types.Challenge(self._authmethod, extra)
+                d.addCallback(assigned)
+                return d
 
             def on_authenticate_error(err):
                 return self._marshal_dynamic_authenticator_error(err)

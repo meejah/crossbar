@@ -451,7 +451,7 @@ class Node(object):
 
         # router and factory that creates router sessions
         #
-        self._router_factory = RouterFactory(self._node_id, self._controller)
+        self._router_factory = RouterFactory(self._node_id, None, self._controller)
         self._router_session_factory = RouterSessionFactory(self._router_factory)
 
         rlm_config = {

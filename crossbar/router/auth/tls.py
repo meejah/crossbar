@@ -83,11 +83,13 @@ class PendingAuthTLS(PendingAuth):
 
                 principal = self._cert_sha1_to_principal[client_cert_sha1]
 
-                error = self._assign_principal(principal)
-                if error:
-                    return error
-
-                return self._accept()
+                d = self._assign_principal(principal)
+                def assigned(res):
+                    if res:
+                        return res
+                    return self._accept()
+                d.addCallback(assigned)
+                return d
             else:
                 return types.Deny(message=u'no principal with authid "{}" exists'.format(client_cert_sha1))
 
@@ -105,18 +107,21 @@ class PendingAuthTLS(PendingAuth):
             d = self._authenticator_session.call(self._authenticator, realm, details.authid, self._session_details)
 
             def on_authenticate_ok(principal):
-                error = self._assign_principal(principal)
-                if error:
-                    return error
+                d = maybeDeferred(self._assign_principal, principal)
+                def assigned(res):
+                    if res:
+                        return res
 
-                # FIXME: not sure about this .. TLS is a transport-level auth mechanism .. so forward
-                self._transport._authid = self._authid
-                self._transport._authrole = self._authrole
-                self._transport._authmethod = self._authmethod
-                self._transport._authprovider = self._authprovider
-                self._transport._authextra = self._authextra
+                    # FIXME: not sure about this .. TLS is a transport-level auth mechanism .. so forward
+                    self._transport._authid = self._authid
+                    self._transport._authrole = self._authrole
+                    self._transport._authmethod = self._authmethod
+                    self._transport._authprovider = self._authprovider
+                    self._transport._authextra = self._authextra
 
-                return self._accept()
+                    return self._accept()
+                d.addCallback(assigned)
+                return d
 
             def on_authenticate_error(err):
                 return self._marshal_dynamic_authenticator_error(err)

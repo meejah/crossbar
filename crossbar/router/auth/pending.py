@@ -32,6 +32,8 @@ from __future__ import absolute_import
 
 import six
 
+from twisted.internet.defer import maybeDeferred
+
 from autobahn.wamp import types
 from autobahn.wamp.exception import ApplicationError
 
@@ -145,17 +147,30 @@ class PendingAuth:
 
         # realm auto-activation: if realm is not started on router, maybe start it ..
         if self._realm not in self._router_factory:
-            # FIXME: this can return a deferred!
-            self._router_factory.auto_start_realm(self._realm)
+            self.log.info("Want to auto-start '{realm}'", realm=self._realm)
+            d = self._router_factory.auto_start_realm(self._realm)
 
-        # if realm is not started on router, bail out now!
-        if self._realm not in self._router_factory:
-            return types.Deny(ApplicationError.NO_SUCH_REALM, message=u'no realm "{}" exists on this router'.format(self._realm))
+            def started(_):
+                self.log.info("{realm} auto-started", realm=self._realm)
+                return self._accept()
+
+            def failed(fail):
+                self.log.info("Failed to auto-start {realm}: {log_failure.value}", realm=self._realm, failure=fail)
+                return types.Deny(ApplicationError.NO_SUCH_REALM, message=u'no realm "{}" exists on this router'.format(self._realm))
+            d.addCallback(started)
+            return d
 
         # role auto-activation: if role is not running on realm, maybe start it ..
+        # XXX race-y conditions if we're already starting the realm
+        # (e.g. we've added the realm, but not yet the role, but we
+        # *will* shortly...)
         if not self._router_factory[self._realm].has_role(self._authrole):
-            # FIXME: this can return a deferred!
-            self._router_factory.auto_add_role(self._realm, self._authrole)
+            d = self._router_factory.auto_add_role(self._realm, self._authrole)
+            def started(_):
+                self.log.info("{role} auto-started", role=self._authrole)
+                return self._accept()
+            d.addCallback(started)
+            return d
 
         # if role is not running on realm, bail out now!
         if not self._router_factory[self._realm].has_role(self._authrole):
@@ -188,6 +203,21 @@ class PendingAuth:
                             authmethod=self._authmethod,
                             authprovider=self._authprovider,
                             authextra=self._authextra)
+
+    def _on_authenticate_ok(self, principal):
+        """
+        Internal helper; used by subclasses to call _assign_principal in
+        an async manner, using the returned value as "the" answer, or
+        _accept()-ing on None.
+        """
+        assign_d = maybeDeferred(self._assign_principal, principal)
+        def assigned(res):
+            if res:
+                return res
+            return self._accept()
+        assign_d.addCallback(assigned)
+        return assign_d
+
 
     def hello(self, realm, details):
         """

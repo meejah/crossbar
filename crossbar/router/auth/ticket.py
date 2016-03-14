@@ -57,7 +57,7 @@ class PendingAuthTicket(PendingAuth):
         self._signature = None
 
     def hello(self, realm, details):
-
+        print("PENDING TICKET {}".format(realm))
         # remember the realm the client requested to join (if any)
         self._realm = realm
 
@@ -73,14 +73,18 @@ class PendingAuthTicket(PendingAuth):
 
                 principal = self._config[u'principals'][self._authid]
 
-                error = self._assign_principal(principal)
-                if error:
-                    return error
+                d = maybeDeferred(self._assign_principal, principal)
 
-                # now set set signature as expected for WAMP-Ticket
-                self._signature = principal[u'ticket']
+                def assigned(res):
+                    if res:
+                        return res
 
-                return types.Challenge(self._authmethod)
+                    # now set set signature as expected for WAMP-Ticket
+                    self._signature = principal[u'ticket']
+
+                    return types.Challenge(self._authmethod)
+                d.addCallback(assigned)
+                return d
             else:
                 return types.Deny(message=u'no principal with authid "{}" exists'.format(self._authid))
 
@@ -127,11 +131,13 @@ class PendingAuthTicket(PendingAuth):
                 if type(principal) == six.text_type:
                     principal = {u'role': principal}
 
-                error = self._assign_principal(principal)
-                if error:
-                    return error
-
-                return self._accept()
+                d = self._assign_principal(principal)
+                def assigned(res):
+                    if res:
+                        return res
+                    return self._accept()
+                d.addCallback(assigned)
+                return d
 
             def on_authenticate_error(err):
                 return self._marshal_dynamic_authenticator_error(err)

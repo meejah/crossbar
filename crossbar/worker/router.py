@@ -271,7 +271,7 @@ class RouterWorkerSession(NativeWorkerSession):
         print("STARTING ROUTERFACTORY {}".format(details))
         # factory for producing (per-realm) routers
         # XXX are we passing the right session to this thing? I doubt it
-        self._router_factory = RouterFactory(self._node_id, self)
+        self._router_factory = RouterFactory(self._node_id, self._worker_id, self)
 
         # factory for producing router sessions
         self._router_session_factory = RouterSessionFactory(self._router_factory)
@@ -440,8 +440,11 @@ class RouterWorkerSession(NativeWorkerSession):
         :param config: The role configuration.
         :type config: dict
         """
-        self.log.debug("{}.start_router_realm_role".format(self.__class__.__name__),
-                       id=id, role_id=role_id, config=config)
+        self.log.info("{cls}.start_router_realm_role({id}, {role_id}, {config})",
+                      cls=class_name(self),
+                      id=id,
+                      role_id=role_id,
+                      config=config)
 
         if id not in self.realms:
             raise ApplicationError(u"crossbar.error.no_such_object", "No realm with ID '{}'".format(id))

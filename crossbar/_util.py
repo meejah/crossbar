@@ -41,3 +41,15 @@ def class_name(obj):
     else:
         cls = obj.__class__
     return '{}.{}'.format(cls.__module__, cls.__name__)
+
+
+class WampPrefixCaller(object):
+    def __init__(self, session, prefix):
+        self._session = session
+        self._prefix = prefix
+
+    # or could override __getattribute__ etc returning objects that
+    # implement __call__ and provide "magic" access, like
+    # caller.foo("arg")
+    def call(self, method, *args, **kw):
+        return self._session.call(method, *args, **kw)

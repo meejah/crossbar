@@ -610,8 +610,8 @@ def run_command_start(options, reactor=None):
         d = node.start(cdc_mode=options.cdc)
 
         def on_error(err):
-            log.error("{e!s}", e=err.value)
-            log.error("Could not start node")
+            log.failure("Error starting node: {log_failure}", failure=err)
+            log.error("Could not start node; stopping reactor")
             if reactor.running:
                 reactor.stop()
         d.addErrback(on_error)

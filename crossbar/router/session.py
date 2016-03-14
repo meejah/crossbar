@@ -48,6 +48,7 @@ from autobahn.wamp.types import SessionDetails
 from autobahn.wamp.interfaces import ITransportHandler
 
 from crossbar._logging import make_logger
+from crossbar._util import class_name
 from crossbar.twisted.endpoint import extract_peer_certificate
 from crossbar.router.auth import PendingAuthWampCra, PendingAuthTicket
 from crossbar.router.auth import AUTHMETHODS, AUTHMETHOD_MAP
@@ -149,6 +150,7 @@ class RouterApplicationSession(object):
         Implements :func:`autobahn.wamp.interfaces.ITransport.send`
         """
         if isinstance(msg, message.Hello):
+            print("1 GETTING ROUTER FOR REALM: {}".format(msg.realm))
             self._router = self._router_factory.get(msg.realm)
 
             # fake session ID assignment (normally done in WAMP opening handshake)
@@ -247,7 +249,19 @@ class RouterApplicationSession(object):
 
 class RouterSession(BaseSession):
     """
-    WAMP router session. This class implements :class:`autobahn.wamp.interfaces.ITransportHandler`.
+    WAMP router session.
+    This class implements :class:`autobahn.wamp.interfaces.ITransportHandler`.
+
+    This is the server-side of a WAMP client connecting to the
+    router; once authorized, our ._realm and _router refs will be
+    valid. This instance forwards messages to the router for
+    processing.
+
+    RouterSessions are created and "run" by
+    :class:`crossbar.worker.router.RouterWorkerSession`
+
+    These, in turn, are created by :class:`crossbar.controller.node.Node`
+    (the overall control process).
     """
 
     log = make_logger()
@@ -338,6 +352,7 @@ class RouterSession(BaseSession):
                 self._pending_session_id = None
                 self._goodbye_sent = False
 
+                print("2 GETTING ROUTER FOR REALM: {}".format(realm))
                 self._router = self._router_factory.get(realm)
                 if not self._router:
                     # should not arrive here
@@ -434,7 +449,7 @@ class RouterSession(BaseSession):
                 # self._transport.close()
 
             else:
-                raise ProtocolError(u"Received {0} message, and session is not yet established".format(msg.__class__))
+                raise ProtocolError(u"Received {0} message, and session is not yet established".format(class_name(msg)))
 
         else:
 
@@ -486,6 +501,8 @@ class RouterSession(BaseSession):
                 # don't close the transport, as WAMP allows to reattach a session
                 # to the same or a different realm without closing the transport
                 # self._transport.close()
+                # XXX so, do we need to close the transport or not?
+                # delete code if "no"
 
             else:
 
@@ -579,6 +596,8 @@ class RouterSession(BaseSession):
             else:
                 auth_config = self._transport_config.get(u'auth', None)
 
+                print("ONHELLO auth_config={}".format(auth_config))
+
                 if not auth_config:
                     # if authentication is _not_ configured, allow anyone to join as "anonymous"!
 
@@ -594,43 +613,12 @@ class RouterSession(BaseSession):
                         # the realm and *then* do auth
                         # ...so we want to call .start_router_realm() ultmately.
                         # aka crossbar.node.<node_id>.worker.<worker_id>.start_router_realm
-
-                        print("FACTORY {}".format(self._router_factory))
-                        print("FACTORY {}".format(self._router_factory._routers))
-                        print("FACTORY {}".format(self._router_factory._node_id))
-                        print("FAC {}".format(self._router_factory._control_session))
-                        print("XXX {}".format(dir(self._router)))
-                        myid = 'worker1'
-                        realm_id = realm
-                        realm_config = dict(
-                            name=realm_id,
-                            roles=[
-                                {
-                                    "name": "anonymous",
-                                    "permissions": [
-                                        {
-                                            "uri": u"",
-                                            "match": u"prefix",
-                                            "allow": {
-                                                "call": True,
-                                                "register": True,
-                                                "publish": True,
-                                                "subscribe": True
-                                            },
-                                            "disclose": {
-                                                "caller": False,
-                                                "publisher": False
-                                            },
-                                            "cache": True
-                                        }
-                                    ]
-                                }
-                            ]
-                        )
+                        self.log.info("Didn't find realm '{realm}'; auto-starting it", realm=realm)
+                        # XXX pass self._service_session?
+                        # XXX pass our worker ID? what is it?
                         d = self._router_factory.auto_start_realm(realm)
 
                         def success(res):
-                            print("AUTOSTARTED {}".format(res))
                             return types.Accept(
                                 realm=realm,
                                 authid=util.generate_serial_number(), # XXX ticket? _cbtid?

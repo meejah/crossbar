@@ -109,15 +109,17 @@ class PendingAuthWampCra(PendingAuth):
 
                 principal = self._config[u'users'][self._authid]
 
-                error = self._assign_principal(principal)
-                if error:
-                    return error
+                d = maybeDeferred(self._assign_principal, principal)
+                def assigned(res):
+                    if res:
+                        return res
 
-                # now compute CHALLENGE.Extra and signature as
-                # expected for WAMP-CRA
-                extra, self._signature = self._compute_challenge(principal)
-
-                return types.Challenge(self._authmethod, extra)
+                    # now compute CHALLENGE.Extra and signature as
+                    # expected for WAMP-CRA
+                    extra, self._signature = self._compute_challenge(principal)
+                    return types.Challenge(self._authmethod, extra)
+                d.addCallback(assigned)
+                return d
             else:
                 return types.Deny(message=u'no principal with authid "{}" exists'.format(details.authid))
 
@@ -133,13 +135,15 @@ class PendingAuthWampCra(PendingAuth):
             d = self._authenticator_session.call(self._authenticator, realm, details.authid, self._session_details)
 
             def on_authenticate_ok(principal):
-                error = self._assign_principal(principal)
-                if error:
-                    return error
-
-                # now compute CHALLENGE.Extra and signature expected
-                extra, self._signature = self._compute_challenge(principal)
-                return types.Challenge(self._authmethod, extra)
+                d = maybeDeferred(self._assign_principal, principal)
+                def assigned(res):
+                    if res:
+                        return res
+                    # now compute CHALLENGE.Extra and signature expected
+                    extra, self._signature = self._compute_challenge(principal)
+                    return types.Challenge(self._authmethod, extra)
+                d.addCallback(assigned)
+                return d
 
             def on_authenticate_error(err):
                 return self._marshal_dynamic_authenticator_error(err)

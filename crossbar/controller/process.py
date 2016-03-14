@@ -1001,6 +1001,7 @@ class NodeControllerSession(NativeProcessSession):
             # not sure when this errback is triggered at all .. see above.
             self.log.failure(
                 "Internal error: connection to forked guest worker failed ({log_failure.value})",
+                failure=err,
             )
 
             # in any case, forward the error ..

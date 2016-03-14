@@ -36,6 +36,8 @@ from autobahn.wamp import types
 from crossbar.router.auth.pending import PendingAuth
 from crossbar._logging import make_logger
 
+from twisted.internet.defer import inlineCallbacks
+
 __all__ = ('PendingAuthAnonymous',)
 
 
@@ -66,12 +68,7 @@ class PendingAuthAnonymous(PendingAuth):
             # self._authid = self._transport._cbtid
 
             principal = self._config
-
-            error = self._assign_principal(principal)
-            if error:
-                return error
-
-            return self._accept()
+            return self._on_authenticate_ok(principal)
 
         # WAMP-Ticket "dynamic"
         elif self._config[u'type'] == u'dynamic':
@@ -85,17 +82,10 @@ class PendingAuthAnonymous(PendingAuth):
 
             d = self._authenticator_session.call(self._authenticator, self._realm, self._authid, self._session_details)
 
-            def on_authenticate_ok(principal):
-                error = self._assign_principal(principal)
-                if error:
-                    return error
-
-                return self._accept()
-
             def on_authenticate_error(err):
                 return self._marshal_dynamic_authenticator_error(err)
 
-            d.addCallbacks(on_authenticate_ok, on_authenticate_error)
+            d.addCallbacks(self._on_authenticate_ok, on_authenticate_error)
 
             return d
 
