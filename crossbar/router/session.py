@@ -150,7 +150,6 @@ class RouterApplicationSession(object):
         Implements :func:`autobahn.wamp.interfaces.ITransport.send`
         """
         if isinstance(msg, message.Hello):
-            print("1 GETTING ROUTER FOR REALM: {}".format(msg.realm))
             self._router = self._router_factory.get(msg.realm)
 
             # fake session ID assignment (normally done in WAMP opening handshake)
@@ -352,7 +351,6 @@ class RouterSession(BaseSession):
                 self._pending_session_id = None
                 self._goodbye_sent = False
 
-                print("2 GETTING ROUTER FOR REALM: {}".format(realm))
                 self._router = self._router_factory.get(realm)
                 if not self._router:
                     # should not arrive here
@@ -595,8 +593,6 @@ class RouterSession(BaseSession):
 
             else:
                 auth_config = self._transport_config.get(u'auth', None)
-
-                print("ONHELLO auth_config={}".format(auth_config))
 
                 if not auth_config:
                     # if authentication is _not_ configured, allow anyone to join as "anonymous"!

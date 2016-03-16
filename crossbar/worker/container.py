@@ -185,7 +185,6 @@ class ContainerWorkerSession(NativeWorkerSession):
         # 1) create WAMP application component factory
         #
         realm = config['realm']
-        print("GOGO GADGET REALM {} {}".format(realm, config))
         extra = config.get('extra', None)
         component_config = ComponentConfig(realm=realm, extra=extra)
 
@@ -210,13 +209,11 @@ class ContainerWorkerSession(NativeWorkerSession):
         def create_session():
             try:
                 session = create_component(component_config)
-                print("SESSION CREATED {} {}".format(session, component_config))
                 # any exception spilling out from user code in onXXX handlers is fatal!
                 def panic(fail, msg):
-                    print("PANIC {} {}".format(fail, msg))
-                    self.log.error(
-                        "Fatal error in component: {msg} - {log_failure.value}",
-                        msg=msg, log_failure=fail,
+                    self.log.failure(
+                        "Fatal error in component: {msg} - {log_failure}",
+                        msg=msg, failure=fail,
                     )
                     session.disconnect()
                 session._swallow_error = panic
@@ -262,7 +259,6 @@ class ContainerWorkerSession(NativeWorkerSession):
         d = endpoint.connect(transport_factory)
 
         def success(proto):
-            print("CONNECT! {}".format(proto))
             component = ContainerComponent(id, config, proto, None)
             self.components[id] = component
 

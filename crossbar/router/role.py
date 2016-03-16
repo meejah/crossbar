@@ -167,7 +167,6 @@ class RouterRole(object):
         self.router = router
         self.uri = uri
         self.allow_by_default = allow_by_default
-        print("ROLE {} {}".format(router, uri))
 
     def authorize(self, session, uri, action):
         """

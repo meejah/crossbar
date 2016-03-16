@@ -315,7 +315,7 @@ class RouterFactory(object):
     The router class this factory will create router instances from.
     """
 
-    def __init__(self, node_id, worker_id, control_session, options=None):
+    def __init__(self, node_id, control_session, options=None):
         """
 
         :param options: Default router options.
@@ -323,14 +323,11 @@ class RouterFactory(object):
         """
         assert(type(node_id) == six.text_type)
         self._node_id = node_id
-        self._worker_id = worker_id
         self._routers = {}
         self._options = options or RouterOptions(uri_check=RouterOptions.URI_CHECK_LOOSE)
         self._auto_create_realms = True
         self._control_session = control_session
-        self._auto_starting = {}  # realm_id -> Deferred
-
-        print("DINGUS!", control_session, dir(control_session))
+        self._auto_starting = {}  #: realm_id -> Deferred
 
     def get(self, realm):
         """
@@ -372,7 +369,7 @@ class RouterFactory(object):
         :returns: The router instance for the started realm.
         :rtype: instance of :class:`crossbar.router.session.CrossbarRouter`
         """
-        self.log.info(
+        self.log.debug(
             "CrossbarRouterFactory.start_realm(realm='{realm}')",
             realm=realm,
         )
@@ -436,7 +433,9 @@ class RouterFactory(object):
         self.log.debug("CrossbarRouterFactory.drop_role(realm = {realm}, role = {role})",
                        realm=realm, role=role)
 
-    def _get_default_role_config(self, role_name):
+    # we could allow another configuration option to configure what an
+    # "auto-added role" has for its config.
+    def _get_auto_role_config(self, role_name):
         return {
             "name": role_name,
             "permissions": [
@@ -460,15 +459,26 @@ class RouterFactory(object):
 
     @defer.inlineCallbacks
     def maybe_start_realm_role(self, realm_name, role_name):
+        """
+        This creates a realm and/or role only-if auto realm creation is
+        on, and we don't currently have the given realm + role
+        combination. If _auto_create_realms isn't True, this is a no-op.
+
+        :returns: Deferred that fires (with None) when the realm and
+            role exist (or right away if _auto_create_realms isn't on).
+        """
         # if auto-create isn't on, there's nothing to do
         if not self._auto_create_realms:
             return
 
         yield self.auto_start_realm(realm_name)
-        #yield self.auto_add_role(realm_name, role_name)
+        yield self.auto_add_role(realm_name, role_name)
 
     @defer.inlineCallbacks
     def auto_start_realm(self, realm_name):
+        """
+        :returns: Deferred that fires (with None) when the realm and roles exist
+        """
         self.log.debug(
             "auto_start_realm('{realm}')",
             realm=realm_name,
@@ -480,30 +490,40 @@ class RouterFactory(object):
             return
 
         if realm_name in self._auto_starting:
-            self.log.info("already auto-starting '{realm}'", realm=realm_name)
+            self.log.debug("already auto-starting '{realm}'; waiting", realm=realm_name)
             yield self._auto_starting[realm_name]
             return
 
-        realm_config = dict(
-            name=realm_name,
-            roles=[self._get_default_role_config(u'anonymous')],
-        )
+        realm_config = {
+            u'name': realm_name,
+            u'roles': [
+                self._get_auto_role_config(u'anonymous'),
+            ]
+        }
+        # we keep these _auto_starting Deferreds in case another
+        # session wants to auto-start the same realm (or role) before
+        # start_router_realm callbacks.
         d = self._control_session.start_router_realm(realm_name, realm_config)
         self._auto_starting[realm_name] = d
         yield d
         del self._auto_starting[realm_name]
 
-        self.log.info("Started realm '{realm.name}'", realm=realm_config)
+        self.log.info("Started realm '{realm[name]}'", realm=realm_config)
         for role_config in realm_config['roles']:
             yield self.auto_add_role(realm_name, role_config['name'])
 
-        self.log.info("Started realm + roles: {realm.roles}", realm=realm_config)
+        self.log.info(
+            "Auto-started realm '{realm[name]}' with roles: {realm[roles]}",
+            realm=realm_config,
+        )
 
     @defer.inlineCallbacks
     def auto_add_role(self, realm, role):
         """
-        If there is not already a role with this name in the realm, this
-        adds a default allow-everything role with the given name
+        If there is not already a role with this name in the realm, we
+        add a default allow-everything role with the given name.
+
+        :returns: Deferred that fires (with None) when the role exists
         """
         self.log.debug("auto_add_role {realm} {role}", realm=realm, role=role)
         if realm in self._auto_starting:
@@ -516,5 +536,5 @@ class RouterFactory(object):
             yield self._control_session.start_router_realm_role(
                 realm,
                 role_id,
-                self._get_default_role_config(role),
+                self._get_auto_role_config(role),
             )
