@@ -145,36 +145,38 @@ class PendingAuth:
         if not self._authrole:
             return types.Deny(ApplicationError.NO_SUCH_ROLE, message=u'no authrole assigned')
 
-        # realm auto-activation: if realm is not started on router, maybe start it ..
-        if self._realm not in self._router_factory:
-            self.log.info("Want to auto-start '{realm}'", realm=self._realm)
-            d = self._router_factory.auto_start_realm(self._realm)
+        # to handle realm auto-activation somewhat sanely, we just
+        # *always* call "auto_start_realm", which will just
+        # defer.succeed() right away if there's already a suitable
+        # realm. Part of the reason to do it this way is that if a
+        # bunch of session all connect "at once" asking for realm
+        # "foo", and it gets auto-started on the first session then
+        # the other sessions have to correctly wait for that realm
+        # *and* possible role to get auto-started
 
-            def started(_):
-                self.log.info("{realm} auto-started", realm=self._realm)
-                return self._accept()
+        d = self._router_factory.maybe_start_realm_role(self._realm, self._authrole)
+        def started(_):
+            if not self._realm in self._router_factory:
+                return types.Deny(
+                    ApplicationError.NO_SUCH_REALM,
+                    message=u'no realm "{}" exists on this router'.format(self._realm),
+                )
+            if not self._router_factory[self._realm].has_role(self._authrole):
+                return types.Deny(
+                    ApplicationError.NO_SUCH_ROLE,
+                    message=u'realm "{}" has no role "{}"'.format(self._realm, self._authrole),
+                )
+            return self._accept()
 
-            def failed(fail):
-                self.log.info("Failed to auto-start {realm}: {log_failure.value}", realm=self._realm, failure=fail)
-                return types.Deny(ApplicationError.NO_SUCH_REALM, message=u'no realm "{}" exists on this router'.format(self._realm))
-            d.addCallback(started)
-            return d
-
-        # role auto-activation: if role is not running on realm, maybe start it ..
-        # XXX race-y conditions if we're already starting the realm
-        # (e.g. we've added the realm, but not yet the role, but we
-        # *will* shortly...)
-        if not self._router_factory[self._realm].has_role(self._authrole):
-            d = self._router_factory.auto_add_role(self._realm, self._authrole)
-            def started(_):
-                self.log.info("{role} auto-started", role=self._authrole)
-                return self._accept()
-            d.addCallback(started)
-            return d
-
-        # if role is not running on realm, bail out now!
-        if not self._router_factory[self._realm].has_role(self._authrole):
-            return types.Deny(ApplicationError.NO_SUCH_ROLE, message=u'realm "{}" has no role "{}"'.format(self._realm, self._authrole))
+        def failed(fail):
+            # if this happens, there's an error in maybe_start_realm_role
+            self.log.failure("maybe_start_realm_role failed: {log_failure}", fail)
+            return types.Deny(
+                ApplicationError.NO_SUCH_REALM,
+                message=u'no realm "{}" exists on this router'.format(self._realm),
+            )
+        d.addCallbacks(started, failed)
+        return d
 
     def _init_dynamic_authenticator(self):
         self._authenticator = self._config['authenticator']
