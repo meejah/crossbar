@@ -33,6 +33,8 @@ from __future__ import absolute_import
 import json
 import six
 
+from twisted.internet.defer import maybeDeferred
+
 from autobahn import util
 from autobahn.wamp import auth
 from autobahn.wamp import types

@@ -38,6 +38,7 @@ import six
 import nacl
 from nacl.signing import VerifyKey
 from nacl.exceptions import BadSignatureError
+from twisted.internet.defer import maybeDeferred
 
 from autobahn import util
 from autobahn.wamp import types

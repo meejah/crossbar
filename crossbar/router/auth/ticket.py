@@ -32,6 +32,8 @@ from __future__ import absolute_import
 
 import six
 
+from twisted.internet.defer import maybeDeferred
+
 from autobahn.wamp import types
 
 from crossbar.router.auth.pending import PendingAuth
