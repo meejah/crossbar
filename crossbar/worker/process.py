@@ -105,6 +105,12 @@ def run():
                         default=None,
                         help='Worker process title to set (optional).')
 
+    # XXX maybe some more-general "options-passing" method...? This is
+    # only for Routers, anyway.
+    parser.add_argument('--auto-realms',
+                        action='store_true',
+                        help='Turn on auto-realms in Router workers.')
+
     options = parser.parse_args()
 
     # make sure logging to something else than stdio is setup _first_

@@ -166,7 +166,10 @@ class PendingAuth:
                     ApplicationError.NO_SUCH_ROLE,
                     message=u'realm "{}" has no role "{}"'.format(self._realm, self._authrole),
                 )
-            return self._accept()
+            # note: do *not* return _accept() here, as subclasses
+            # typically short-circuit after self._assign_principal()
+            # if it returns anything at all
+            return None
 
         def failed(fail):
             # if this happens, there's an error in maybe_start_realm_role

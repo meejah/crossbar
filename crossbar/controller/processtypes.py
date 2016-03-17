@@ -261,6 +261,9 @@ class RouterWorkerProcess(NativeWorkerProcess):
     TYPE = 'router'
     LOGNAME = 'Router'
 
+    def __init__(self, controller, id, who, keeplog=None, auto_realms=False):
+        NativeWorkerProcess.__init__(self, controller, id, who, keeplog=keeplog)
+        self.auto_realms = auto_realms
 
 class ContainerWorkerProcess(NativeWorkerProcess):
     """

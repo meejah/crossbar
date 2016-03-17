@@ -51,7 +51,7 @@ from autobahn.wamp.exception import ApplicationError
 from crossbar.twisted.resource import StaticResource, StaticResourceNoListing
 
 from crossbar._util import class_name
-from crossbar.router import uplink
+from crossbar.router import uplink, RouterOptions
 from crossbar.router.session import RouterSessionFactory
 from crossbar.router.service import RouterServiceSession
 from crossbar.router.router import RouterFactory
@@ -269,7 +269,10 @@ class RouterWorkerSession(NativeWorkerSession):
         yield NativeWorkerSession.onJoin(self, details, publish_ready=False)
 
         # factory for producing (per-realm) routers
-        self._router_factory = RouterFactory(self._node_id, self)
+        options = RouterOptions()
+        if self.config.extra.auto_realms:
+            options.auto_create_realms = True
+        self._router_factory = RouterFactory(self._node_id, self, options)
 
         # factory for producing router sessions
         self._router_session_factory = RouterSessionFactory(self._router_factory)

@@ -325,7 +325,6 @@ class RouterFactory(object):
         self._node_id = node_id
         self._routers = {}
         self._options = options or RouterOptions(uri_check=RouterOptions.URI_CHECK_LOOSE)
-        self._auto_create_realms = True
         self._control_session = control_session
         self._auto_starting = {}  #: realm_id -> Deferred
 
@@ -333,18 +332,6 @@ class RouterFactory(object):
         """
         Implements :func:`autobahn.wamp.interfaces.IRouterFactory.get`
         """
-        if False:#self._auto_create_realms:
-            # XXX we need an instance of RouterRealm to pass to
-            # router() and this seems ... too magic? anyway
-            if realm not in self._routers:
-                print("UNFOUND REALM {} {}".format(realm, self._options))
-                self._routers[realm] = self.router(
-                    self,
-                    {"name": realm},
-                    self._options,
-                )
-                self.log.info("Router created for realm '{realm}'",
-                               realm=realm)
         return self._routers[realm]
 
     def __getitem__(self, realm):
@@ -462,13 +449,13 @@ class RouterFactory(object):
         """
         This creates a realm and/or role only-if auto realm creation is
         on, and we don't currently have the given realm + role
-        combination. If _auto_create_realms isn't True, this is a no-op.
+        combination. If auto_create_realms isn't True, this is a no-op.
 
         :returns: Deferred that fires (with None) when the realm and
-            role exist (or right away if _auto_create_realms isn't on).
+            role exist (or right away if auto_create_realms isn't on).
         """
         # if auto-create isn't on, there's nothing to do
-        if not self._auto_create_realms:
+        if not self._options.auto_create_realms:
             return
 
         yield self.auto_start_realm(realm_name)
@@ -483,7 +470,7 @@ class RouterFactory(object):
             "auto_start_realm('{realm}')",
             realm=realm_name,
         )
-        if not self._auto_create_realms:
+        if not self._options.auto_create_realms:
             raise Exception("Autostart disallowed; not starting '{}'".format(realm_name))
 
         if realm_name in self._routers:
