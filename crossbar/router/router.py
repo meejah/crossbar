@@ -436,8 +436,8 @@ class RouterFactory(object):
                         "subscribe": True
                     },
                     "disclose": {
-                        "caller": False,
-                        "publisher": False
+                        "caller": True,
+                        "publisher": True,
                     },
                     "cache": True
                 }
