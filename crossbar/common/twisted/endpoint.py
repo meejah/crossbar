@@ -385,15 +385,53 @@ def create_listening_endpoint_from_config(config, cbdir, reactor, log):
             # create a TLS server endpoint
             #
             if _HAS_TLS:
-                # TLS server context
-                context = _create_tls_server_context(config['tls'], cbdir, log)
-
                 if version == 4:
-                    endpoint = SSL4ServerEndpoint(reactor,
-                                                  port,
-                                                  context,
-                                                  backlog=backlog,
-                                                  interface=interface)
+                    if 'letsencrypt_dir' in config['tls']:
+                        le_dir = config['tls']['letsencrypt_dir']
+                        if isabs(le_dir):
+                            abs_dir = le_dir
+                        else:
+                            abs_dir = abspath(join(cbdir, le_dir))
+                        if not exists(abs_dir):
+                            log.info("Creating Let's Encrypt dir: '{dir}'", dir=abs_dir)
+                            os.makedirs(abs_dir)
+
+                        # when using Let's Encrypt, it expects to find
+                        # <hostname>.pem files in the directory, and
+                        # wants a blank one the first time (i.e. to
+                        # create a brand new certificate).
+                        hostname = config['tls'].get('hostname', None)
+                        if hostname:
+                            host_fname = join(abs_dir, "{}.pem".format(hostname))
+                            if not exists(host_fname):
+                                log.info("Creating '{fname}'", fname=host_fname)
+                                with open(host_fname, 'w') as f:
+                                    pass  # empty file
+                        else:
+                            log.warn("No hostname specified for Let's Encrypt")
+
+                        # options for the TCP part of the endpoint string
+                        interface_str = "" if not interface else ":interface={}".format(interface)
+                        backlog_str = ":backlog={}".format(backlog)
+
+                        # note that this requires us to have txacme
+                        # installed, but we never actually "import
+                        # txacme" anywhere in the code
+                        endpoint = serverFromString(
+                            reactor,
+                            "le:{}:tcp:{}{}{}".format(le_dir, port, interface_str, backlog_str),
+                        )
+
+                    else:
+                        # TLS server context
+                        context = _create_tls_server_context(config['tls'], cbdir, log)
+                        endpoint = SSL4ServerEndpoint(
+                            reactor,
+                            port,
+                            context,
+                            backlog=backlog,
+                            interface=interface,
+                        )
                 elif version == 6:
                     raise Exception("TLS on IPv6 not implemented")
                 else:

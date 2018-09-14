@@ -773,14 +773,35 @@ def check_listening_endpoint_tls(tls):
     :param tls: The TLS configuration part of a listening endpoint.
     :type tls: dict
     """
-    check_dict_args({
-        'key': (True, [six.text_type]),
-        'certificate': (True, [six.text_type]),
-        'chain_certificates': (False, [Sequence]),
-        'dhparam': (False, [six.text_type]),
-        'ciphers': (False, [six.text_type]),
-        'ca_certificates': (False, [Sequence]),
-    }, tls, "TLS listening endpoint")
+    if 'letsencrypt_dir' not in tls:
+        check_dict_args({
+            'key': (True, [six.text_type]),
+            'certificate': (True, [six.text_type]),
+            'chain_certificates': (False, [Sequence]),
+            'dhparam': (False, [six.text_type]),
+            'ciphers': (False, [six.text_type]),
+            'ca_certificates': (False, [Sequence]),
+        }, tls, "TLS listening endpoint")
+
+    else:
+        incompat = [
+            'certificate',
+            'chain_certificates',
+            'key',
+            'ca_certificates',
+            'dhparam',  # hopefully some way to get these options through to txacme/txsni...
+            'ciphers',  # hopefully some way to get these options through to txacme/txsni...
+        ]
+        unusable_options = [
+            k for k in incompat
+            if k in tls
+        ]
+        if unusable_options:
+            raise InvalidConfigException(
+                "Can't use Let's Encrypt with: {}".format(
+                    ", ".join(unusable_options)
+                )
+            )
 
     return
 
