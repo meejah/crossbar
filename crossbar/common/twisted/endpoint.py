@@ -419,7 +419,7 @@ def create_listening_endpoint_from_config(config, cbdir, reactor, log):
                         # txacme" anywhere in the code
                         endpoint = serverFromString(
                             reactor,
-                            "le:{}:tcp:{}{}{}".format(le_dir, port, interface_str, backlog_str),
+                            "lets:{}:tcp:{}{}{}".format(le_dir, port, interface_str, backlog_str),
                         )
 
                     else:
