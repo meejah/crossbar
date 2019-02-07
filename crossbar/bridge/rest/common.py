@@ -514,9 +514,22 @@ class _CommonResource(Resource):
                 # treat like original behavior and just accept the request_id
                 pass
             elif isinstance(value, types.Accept):
-                self._session._authid = value.authid
-                self._session._authrole = value.authrole
-                # realm?
+                # check that the realm matches what's in the bridge
+                # config.
+                # XXX authid: can/should we do anything with this?
+
+                if value.authrole != self._session._authrole:
+                    request.write(
+                        self._deny_request(
+                            request, 401,
+                            authrole=value.authrole,
+                            bridgerole=self._session._authrole,
+                            log_category="AR468",
+                        )
+                    )
+                    request.finish()
+                    return
+
             else:
                 # FIXME: not returning deny request... probably not ideal
                 request.write(self._deny_request(request, 401, reason=u"not authorized", log_category="AR401"))
@@ -566,7 +579,6 @@ class _CommonResource(Resource):
         def on_auth_error(err):
             # XXX: is it ideal to write to the request?
             request.write(self._deny_request(request, 401, reason=u"not authorized", log_category="AR401"))
-
             request.finish()
             return
 
@@ -603,12 +615,12 @@ class _CommonResource(Resource):
                 signature = args['ticket'].decode("utf-8")
 
         if authmethod and authid and signature:
-
             hdetails = types.HelloDetails(
                 authid=authid,
                 authmethods=[authmethod]
             )
 
+            # XXX FIXME can't be stomping on all this stuff......
             # wire up some variables for the authenticators to work, this is hackish
 
             # a custom header based authentication scheme can be implemented
@@ -631,7 +643,8 @@ class _CommonResource(Resource):
 
         else:
             # don't return the value or it will be written to the request
-            on_auth_ok(True)
+            anon_allowed = (self._auth_config == {})
+            on_auth_ok(anon_allowed)
 
         return server.NOT_DONE_YET
 
