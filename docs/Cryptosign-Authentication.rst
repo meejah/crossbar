@@ -78,3 +78,32 @@ Here is an example configuration using static credentials taken from `this fully
         }
     }
     ...
+
+
+Creating Keys
+-------------
+
+Crossbar.io provides a key-generation command, `crossbar keygen`. For
+this application (authentication) we need signing keys so use
+`crossbar keygen --signing`.
+
+Be careful here: the client needs the private key and the server lists
+the public-keys. To make sure you've gotten this the right way around,
+Autobahn's `Component` allows you to list both the public and the
+private keys in the client's configuration and will produce an error
+if the public-key doesn't correspond to the private one. For example::
+
+    from autobahn.twisted.component import Component
+
+    client = Component(
+        # ...
+        authentication={
+            "cryptosign": {
+                "authid": "user0",
+                "authrole": "default",
+                "privkey": "e70e884ec0dc3f4d3884924525680d95512477e20276b6326b0b77f6f98e9e6e",
+                "pubkey": "c5762568bd727e1f0e1c49771d48a8a362873308b185fb998f43cfe99adaac30",
+            }
+        }
+        # ...
+    )

@@ -39,6 +39,7 @@ import platform
 import signal
 import sys
 import pkg_resources
+import binascii
 
 import vmprof
 
@@ -1003,9 +1004,19 @@ def _run_command_keygen(options, reactor, personality):
         print("You should install 'autobahn[encryption]'")
         sys.exit(1)
 
-    priv, pub = KeyRing().generate_key_hex()
-    print('  private: {}'.format(priv))
-    print('   public: {}'.format(pub))
+    if options.signing:
+        from autobahn.wamp.cryptosign import SigningKey
+
+        privkey_bytes = os.urandom(32)
+        privkey = SigningKey.from_key_bytes(privkey_bytes)
+        pubkey = privkey.public_key()
+        print('  private: {}'.format(binascii.b2a_hex(privkey_bytes).decode('ascii')))
+        print('   public: {}'.format(pubkey))
+    else:
+        priv, pub = KeyRing().generate_key_hex()
+        print('  private: {}'.format(priv))
+        print('   public: {}'.format(pub))
+
 
 
 def _print_usage(prog, personality):
@@ -1141,6 +1152,12 @@ def main(prog, args, reactor, personality):
     parser_keygen = subparsers.add_parser(
         'keygen',
         help='Generate public/private keypairs for use with autobahn.wamp.cryptobox.KeyRing'
+    )
+    parser_keygen.add_argument(
+        '--signing',
+        action="store_true",
+        default=False,
+        help='Generate signing keys (instead of SecretBox keys)',
     )
     parser_keygen.set_defaults(func=_run_command_keygen)
 
